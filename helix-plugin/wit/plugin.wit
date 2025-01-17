@@ -1,0 +1,38 @@
+package helix:plugin;
+
+interface types {
+    record plugin-metadata {
+        name: string,
+        description: string,
+        keywords: list<string>,
+    }
+
+    enum log-level {
+        info,
+        warn,
+        error,
+    }
+    // TODO model helix context and APIs as resources
+}
+
+
+world base {
+    use types.{log-level, plugin-metadata};
+
+    /// Every plugin has to provide some mandatory metadata, which may be displayed to the user.
+    export get-metadata: func() -> plugin-metadata;
+    
+    // Basic interface functions
+
+    /// TODO initialize only makes sense if we give it a helix context as a parameter
+    export initialize: func();
+
+    import log: func(level: log-level, msg: string);
+
+    import set-editor-status: func(msg: string);
+}
+
+world keyevents {
+    export handle-key-press: func(c: char);
+    import test: func();
+}

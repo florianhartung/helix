@@ -13,11 +13,16 @@ members = [
   "helix-vcs",
   "helix-parsec",
   "helix-stdx",
+  "helix-plugin",
   "xtask",
 ]
 
 default-members = [
   "helix-term"
+]
+
+exclude = [
+  "builtin-plugins"
 ]
 
 [profile.release]

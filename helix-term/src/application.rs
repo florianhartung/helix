@@ -6,6 +6,7 @@ use helix_lsp::{
     util::lsp_range_to_range,
     LanguageServerId, LspProgressMap,
 };
+use helix_plugin::{plugin_invocation_context::PluginInvocationCx, PluginSystem};
 use helix_stdx::path::get_relative_path;
 use helix_view::{
     align_view,
@@ -39,7 +40,10 @@ use std::{collections::btree_map::Entry, io::stdin, path::Path, sync::Arc};
 use anyhow::Context;
 use anyhow::Error;
 
-use crossterm::{event::Event as CrosstermEvent, tty::IsTty};
+use crossterm::{
+    event::{Event as CrosstermEvent, KeyCode, KeyEvent},
+    tty::IsTty,
+};
 #[cfg(not(windows))]
 use {signal_hook::consts::signal, signal_hook_tokio::Signals};
 #[cfg(windows)]
@@ -63,6 +67,7 @@ pub struct Application {
     compositor: Compositor,
     terminal: Terminal,
     pub editor: Editor,
+    plugin_system: PluginSystem,
 
     config: Arc<ArcSwap<Config>>,
 
@@ -259,6 +264,8 @@ impl Application {
         ])
         .context("build signal handler")?;
 
+        let plugin_system = PluginSystem::new();
+
         let app = Self {
             compositor,
             terminal,
@@ -272,6 +279,7 @@ impl Application {
             signals,
             jobs: Jobs::new(),
             lsp_progress: LspProgressMap::new(),
+            plugin_system,
         };
 
         Ok(app)
@@ -315,6 +323,7 @@ impl Application {
         S: Stream<Item = std::io::Result<crossterm::event::Event>> + Unpin,
     {
         self.render().await;
+        self.plugin_system.initialize();
 
         loop {
             if !self.event_loop_until_idle(input_stream).await {
@@ -651,6 +660,21 @@ impl Application {
             jobs: &mut self.jobs,
             scroll: None,
         };
+
+        if let Ok(CrosstermEvent::Key(KeyEvent {
+            code: KeyCode::Char(c),
+            ..
+        })) = &event
+        {
+            let plugin_cx = PluginInvocationCx {
+                set_editor_status: &mut (|msg: String| cx.editor.set_status(msg)),
+            };
+
+            self.plugin_system
+                .on_key_press(plugin_cx, *c);
+        }
+
+        self.plugin_system.initialize();
         // Handle key events
         let should_redraw = match event.unwrap() {
             CrosstermEvent::Resize(width, height) => {
