@@ -1,0 +1,9 @@
+package component:hello-world;
+
+world hello-world {
+    include helix:plugin/base;
+
+    include helix:plugin/keyevents;
+
+    include helix:plugin/run-typed-commands;
+}

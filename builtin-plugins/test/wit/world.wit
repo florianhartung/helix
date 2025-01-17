@@ -1,0 +1,53 @@
+package component:hello-world;
+
+interface types {
+    flags requested-wasi-interfaces {
+        http,
+        foo,
+        bar,
+        baz,
+        bla,
+    }
+
+    record plugin-metadata {
+        name: string,
+        description: string,
+        keywords: list<string>,
+        requested-wasi-interfaces: requested-wasi-interfaces,
+    }
+
+    enum log-level {
+        info,
+        warn,
+        error,
+    }
+    // TODO model helix context and APIs as resources
+}
+
+
+world hello-world {
+    use types.{log-level, plugin-metadata};
+
+    /// Every plugin has to provide some mandatory metadata, which may be displayed to the user.
+    /// This is the only function from which a plugin may not call imported functions.
+    export get-metadata: func() -> plugin-metadata;
+    
+    /// This function is called directly after the editor state is initialized.
+    /// It allows plugins to make changes to the editor before it is rendered for the first time.
+    export initialize: func();
+
+    /// Logs some message in the helix log file.
+    import log: func(level: log-level, msg: string);
+
+
+    /// Logs some message in the helix log file.
+    import get-text-selection: func() -> option<string>;
+
+    // --- Functions ---
+    import set-editor-status: func(msg: string);
+
+    export handle-key-press: func(c: char);
+}
+
+// TODO It is unclear what some of these functions should return.
+/// IMO not really useful for real plugin development. But there is also no reason we should disallow plugins invoking commands.

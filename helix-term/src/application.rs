@@ -1,3 +1,4 @@
+use crate::plugin::PluginSystem;
 use arc_swap::{access::Map, ArcSwap};
 use futures_util::Stream;
 use helix_core::{diagnostic::Severity, pos_at_coords, syntax, Range, Selection};
@@ -32,13 +33,22 @@ use crate::{
 use log::{debug, error, info, warn};
 #[cfg(not(feature = "integration"))]
 use std::io::stdout;
-use std::{io::stdin, path::Path, sync::Arc};
+use std::{
+    io::stdin,
+    iter,
+    path::{Path, PathBuf},
+    str::FromStr,
+    sync::Arc,
+};
 
 #[cfg(not(windows))]
 use anyhow::Context;
 use anyhow::Error;
 
-use crossterm::{event::Event as CrosstermEvent, tty::IsTty};
+use crossterm::{
+    event::{Event as CrosstermEvent, KeyCode, KeyEvent},
+    tty::IsTty,
+};
 #[cfg(not(windows))]
 use {signal_hook::consts::signal, signal_hook_tokio::Signals};
 #[cfg(windows)]
@@ -62,6 +72,7 @@ pub struct Application {
     compositor: Compositor,
     terminal: Terminal,
     pub editor: Editor,
+    plugin_system: PluginSystem,
 
     config: Arc<ArcSwap<Config>>,
 
@@ -234,6 +245,24 @@ impl Application {
         ])
         .context("build signal handler")?;
 
+        let plugin_search_dirs = iter::once(helix_loader::config_dir())
+            .chain(helix_loader::runtime_dirs().iter().cloned())
+            .map(|parent_dir| parent_dir.join("plugins"))
+            // Add this for ease of development
+            .chain(iter::once(
+                PathBuf::from_str(
+                    "builtin-plugins/hello-world/target/wasm32-unknown-unknown/debug",
+                )
+                .unwrap(),
+            ));
+
+        // Even in case of errors, we still get a plugin system back
+        let plugin_system =
+            PluginSystem::new(plugin_search_dirs).unwrap_or_else(|(plugin_system, err)| {
+                editor.set_error(err.to_string());
+                plugin_system
+            });
+
         let app = Self {
             compositor,
             terminal,
@@ -242,6 +271,7 @@ impl Application {
             signals,
             jobs: Jobs::new(),
             lsp_progress: LspProgressMap::new(),
+            plugin_system,
         };
 
         Ok(app)
@@ -284,6 +314,9 @@ impl Application {
     where
         S: Stream<Item = std::io::Result<crossterm::event::Event>> + Unpin,
     {
+        self.plugin_system
+            .initialize(&mut self.editor, &mut self.compositor, None, &mut self.jobs);
+
         self.render().await;
 
         loop {
@@ -630,6 +663,16 @@ impl Application {
             jobs: &mut self.jobs,
             scroll: None,
         };
+
+        if let Ok(CrosstermEvent::Key(KeyEvent {
+            code: KeyCode::Char(c),
+            ..
+        })) = &event
+        {
+            self.plugin_system
+                .on_key_press(cx.editor, &mut self.compositor, None, cx.jobs, *c);
+        }
+
         // Handle key events
         let should_redraw = match event.unwrap() {
             CrosstermEvent::Resize(width, height) => {

@@ -1,0 +1,30 @@
+[package]
+name = "hello-world"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+wit-bindgen-rt = { version = "0.37.0", features = ["bitflags"] }
+
+[lib]
+crate-type = ["cdylib"]
+
+[profile.release]
+codegen-units = 1
+opt-level = "s"
+debug = false
+strip = true
+lto = true
+
+[package.metadata.component]
+package = "component:hello-world"
+
+# In the future it could look like this with the WIT in an OCI registry
+# [package.metadata.component.target]
+# package = "helix:plugin"
+# version = "0.2.0"
+# world = "base"
+
+# What is the difference between *.component.target.dependencies and *.component.dependencies ??
+[package.metadata.component.target.dependencies]
+"helix:plugin" = { path = '/home/flo/git/florianhartung/helix/helix-term/src/plugin/' }

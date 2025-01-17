@@ -20,8 +20,13 @@ default-members = [
   "helix-term"
 ]
 
+exclude = [
+  "builtin-plugins"
+]
+
 [profile.release]
-lto = "thin"
+lto = "off"
+
 
 [profile.opt]
 inherits = "release"
