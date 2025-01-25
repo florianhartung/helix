@@ -1,3 +1,4 @@
+use crate::plugin::PluginSystem;
 use arc_swap::{access::Map, ArcSwap};
 use futures_util::Stream;
 use helix_core::{diagnostic::Severity, pos_at_coords, syntax, Range, Selection};
@@ -6,7 +7,6 @@ use helix_lsp::{
     util::lsp_range_to_range,
     LanguageServerId, LspProgressMap,
 };
-use helix_plugin::{plugin_invocation_context::PluginInvocationCx, PluginSystem};
 use helix_stdx::path::get_relative_path;
 use helix_view::{
     align_view,
@@ -322,8 +322,9 @@ impl Application {
     where
         S: Stream<Item = std::io::Result<crossterm::event::Event>> + Unpin,
     {
+        self.plugin_system.initialize(&mut self.editor, &mut self.compositor);
+
         self.render().await;
-        self.plugin_system.initialize();
 
         loop {
             if !self.event_loop_until_idle(input_stream).await {
@@ -666,15 +667,9 @@ impl Application {
             ..
         })) = &event
         {
-            let plugin_cx = PluginInvocationCx {
-                set_editor_status: &mut (|msg: String| cx.editor.set_status(msg)),
-            };
-
-            self.plugin_system
-                .on_key_press(plugin_cx, *c);
+            self.plugin_system.on_key_press(cx.editor, &mut self.compositor, *c);
         }
 
-        self.plugin_system.initialize();
         // Handle key events
         let should_redraw = match event.unwrap() {
             CrosstermEvent::Resize(width, height) => {

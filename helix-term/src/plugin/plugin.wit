@@ -20,16 +20,23 @@ world base {
     use types.{log-level, plugin-metadata};
 
     /// Every plugin has to provide some mandatory metadata, which may be displayed to the user.
+    /// This is the only function from which a plugin may not call imported functions.
     export get-metadata: func() -> plugin-metadata;
     
-    // Basic interface functions
-
-    /// TODO initialize only makes sense if we give it a helix context as a parameter
+    /// This function is called directly after the editor state is initialized.
+    /// It allows plugins to make changes to the editor before it is rendered for the first time.
     export initialize: func();
 
+    /// Logs some message in the helix log file.
     import log: func(level: log-level, msg: string);
 
+
+    /// Logs some message in the helix log file.
+    import get-text-selection: func() -> option<string>;
+
+    // --- Functions ---
     import set-editor-status: func(msg: string);
+
 }
 
 world keyevents {
