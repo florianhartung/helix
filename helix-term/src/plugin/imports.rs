@@ -1,3 +1,6 @@
+use std::{any::Any, collections::HashMap};
+
+use bindings::helix::plugin as interface_bindings;
 use helix_view::{Editor, ViewId};
 use wasmtime::component::Linker;
 
@@ -34,13 +37,33 @@ pub struct Cx {
 
     /// Needed for resource management. Mapping of resource ids to actual resources in the editor. Ids should be randomized and use of invalid ids immediately punished. That is because currently Wasm code can still forge resources as they are simply encoded using a u32. Maybe externrefs could be used in the future so that Wasm cannot forge or inspect resources anymore?
     /// Including GC support will resolve this, because it allows externrefs to be used as handles. See https://github.com/WebAssembly/component-model/issues/525
-    resources: HashMap<u32, Resource>,
+    pub resources: Vec<Resource>,
+}
+
+impl Cx {
+    fn allocate_resource<T: 'static>(
+        &mut self,
+        resource: Resource,
+    ) -> wasmtime::component::Resource<T> {
+        let idx = self.resources.len();
+        self.resources.push(resource);
+        wasmtime::component::Resource::new_borrow(idx.try_into().unwrap())
+    }
+
+    fn get_resource<T: 'static>(
+        &mut self,
+        resource: wasmtime::component::Resource<T>,
+    ) -> &Resource {
+        self.resources
+            .get(usize::try_from(resource.rep()).unwrap())
+            .unwrap()
+    }
 }
 
 #[derive(Clone)]
-enum Resource {
+pub enum Resource {
     EditorState,
-    ViewId(ViewId)
+    View(ViewId),
 }
 
 impl Imports {
@@ -71,49 +94,74 @@ impl Imports {
     }
 }
 
-impl bindings::helix::plugin::types::HostEditor for Imports {
-    fn new(&mut self) -> wasmtime::component::Resource<Editor> {
-        let Cx { editor, .. } = self.expect_cx();
+impl interface_bindings::types::HostEditor for Imports {
+    fn new(&mut self) -> wasmtime::component::Resource<interface_bindings::types::Editor> {
+        let cx = self.expect_cx();
 
-        wasmtime::component::Resource::new_borrow(1) // lets use 1 for the editor for now
+        cx.allocate_resource(Resource::EditorState)
     }
 
-    fn get_tree(
+    fn get_focus(
         &mut self,
-        self_: wasmtime::component::Resource<Editor>,
-    ) -> wasmtime::component::Resource<Tree> {
-        todo!()
+        editor: wasmtime::component::Resource<interface_bindings::types::Editor>,
+    ) -> wasmtime::component::Resource<interface_bindings::types::View> {
+        let cx = self.expect_cx();
+        let Resource::EditorState = cx.get_resource(editor) else {
+            panic!("bug in plugin system or malicious plugin detected");
+        };
+
+        cx.allocate_resource(Resource::View(cx.editor.tree.focus))
+    }
+
+    fn remove_view(
+        &mut self,
+        editor: wasmtime::component::Resource<interface_bindings::types::Editor>,
+        view: wasmtime::component::Resource<interface_bindings::types::View>,
+    ) {
+        let cx = self.expect_cx();
+        let Resource::EditorState = cx.get_resource(editor) else {
+            panic!("bug in plugin system or malicious plugin detected");
+        };
+
+        let Resource::View(view_id) = cx.get_resource(view).clone() else {
+            panic!("bug in plugin system or malicious plugin detected");
+        };
+
+        cx.editor.tree.remove(view_id);
+    }
+
+    fn drop(
+        &mut self,
+        rep: wasmtime::component::Resource<interface_bindings::types::Editor>,
+    ) -> wasmtime::Result<()> {
+        Ok(())
     }
 
     fn close(
         &mut self,
-        self_: wasmtime::component::Resource<Editor>,
-        view: wasmtime::component::Resource<ViewId>,
+        self_: wasmtime::component::Resource<interface_bindings::types::Editor>,
     ) -> () {
         todo!()
     }
+}
 
-    fn drop(&mut self, rep: wasmtime::component::Resource<Editor>) -> wasmtime::Result<()> {
+impl interface_bindings::types::HostView for Imports {
+    fn get_area(
+        &mut self,
+        self_: wasmtime::component::Resource<interface_bindings::types::View>,
+    ) -> interface_bindings::types::Rect {
         todo!()
+    }
+
+    fn drop(
+        &mut self,
+        rep: wasmtime::component::Resource<interface_bindings::types::View>,
+    ) -> wasmtime::Result<()> {
+        Ok(())
     }
 }
 
-impl bindings::helix::plugin::types::HostTree for Imports {
-    fn get_focus(&mut self,self_:wasmtime::component::Resource<bindings::helix::plugin::types::Tree>,) -> wasmtime::component::Resource<ViewId> {
-        self_.rep()
-
-    }
-
-    fn get(&mut self,self_:wasmtime::component::Resource<Tree>,) -> wasmtime::component::Resource<View> {
-        todo!()
-    }
-
-    fn drop(&mut self,rep:wasmtime::component::Resource<Tree>) -> wasmtime::Result<()> {
-        todo!()
-    }
-}
-
-impl bindings::helix::plugin::types::Host for Imports {}
+impl interface_bindings::types::Host for Imports {}
 
 impl bindings::BaseImports for Imports {
     fn log(&mut self, log_level: bindings::LogLevel, msg: String) {

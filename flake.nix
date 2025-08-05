@@ -67,6 +67,7 @@
             [
               lld
               cargo-flamegraph
+              cargo-expand
               rust-bin.nightly.latest.rust-analyzer
             ]
             ++ (lib.optional (stdenv.isx86_64 && stdenv.isLinux) cargo-tarpaulin)

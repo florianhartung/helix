@@ -24,17 +24,26 @@ interface types {
         error,
     }
 
-    // TODO model helix context and APIs as resources
-    resource view { }
-    resource view-id { }
-    resource tree {
-        get-focus: func() -> view-id;
-        get: func() -> view;
+    // Models for helix stuff
+
+    record rect {
+        x: u16,
+        y: u16,
+        width: u16,
+        height: u16,
     }
+
+    resource view {
+        // get-id: func() -> view-id;
+        get-area: func() -> rect;
+    }
+
     resource editor {
-        constructor();
-        get-tree: func() -> tree;
-        close: func(view: view-id);
+        constructor(); // gets editor from cx, all editor methods could be lifted to global functions
+        get-focus: func() -> view;
+        remove-view: func(view: view);
+        // get-all-views: func() -> list<view>;
+        close: func();
     }
 }
 

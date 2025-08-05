@@ -79,6 +79,7 @@ fn inject_helix_context_into_plugin_store<R>(
                     compositor: compositor_owned,
                     scroll: scroll.clone(),
                     jobs: jobs_owned,
+                    resources: Vec::new(),
                 }),
             )
             .is_some()
