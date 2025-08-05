@@ -2,9 +2,9 @@
 
 <h1>
 <picture>
-  <source media="(prefers-color-scheme: dark)" srcset="logo_dark.svg">
-  <source media="(prefers-color-scheme: light)" srcset="logo_light.svg">
-  <img alt="Helix" height="128" src="logo_light.svg">
+  <source media="(prefers-color-scheme: dark)" srcset="logo_dark_wasm.svg">
+  <source media="(prefers-color-scheme: light)" srcset="logo_light_wasm.svg">
+  <img alt="HelixWebassembly" height="128" src="logo_light_wasm.svg">
 </picture>
 </h1>
 
