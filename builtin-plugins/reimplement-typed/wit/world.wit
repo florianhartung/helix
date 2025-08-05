@@ -1,0 +1,9 @@
+package component:reimplement-typed;
+
+world reimplement-typed {
+    include helix:plugin/base;
+
+    include helix:plugin/keyevents;
+
+    include helix:plugin/run-typed-commands;
+}

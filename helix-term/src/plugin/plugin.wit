@@ -14,6 +14,7 @@ interface types {
         name: string,
         description: string,
         keywords: list<string>,
+        // TODO remove and add permissions field
         requested-wasi-interfaces: requested-wasi-interfaces,
     }
 
@@ -24,11 +25,22 @@ interface types {
     }
 
     // TODO model helix context and APIs as resources
+    resource view { }
+    resource view-id { }
+    resource tree {
+        get-focus: func() -> view-id;
+        get: func() -> view;
+    }
+    resource editor {
+        constructor();
+        get-tree: func() -> tree;
+        close: func(view: view-id);
+    }
 }
 
 
 world base {
-    use types.{log-level, plugin-metadata};
+    use types.{log-level, plugin-metadata, editor};
 
     /// Every plugin has to provide some mandatory metadata, which may be displayed to the user.
     /// This is the only function from which a plugin may not call imported functions.
@@ -46,7 +58,6 @@ world base {
 
     // --- Basic Functions ---
     import set-editor-status: func(msg: string);
-
 }
 
 world keyevents {

@@ -20,6 +20,7 @@ pub struct PluginSystem {
 }
 
 impl PluginSystem {
+    // TODO add dedicated methods for loading, unloading and reloading plugins dynamically
     pub fn new(
         search_dirs: impl Iterator<Item = impl AsRef<Path>>,
     ) -> Result<Self, (Self, anyhow::Error)> {

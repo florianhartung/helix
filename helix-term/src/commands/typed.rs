@@ -92,6 +92,7 @@ fn force_quit(cx: &mut compositor::Context, _args: Args, event: PromptEvent) -> 
     if event != PromptEvent::Validate {
         return Ok(());
     }
+    cx.editor.tree.get(cx.editor.tree.focus);
 
     cx.block_try_flush_writes()?;
     cx.editor.close(view!(cx.editor).id);

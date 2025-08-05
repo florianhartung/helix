@@ -1,4 +1,4 @@
-use helix_view::Editor;
+use helix_view::{Editor, ViewId};
 use wasmtime::component::Linker;
 
 use crate::{
@@ -31,6 +31,16 @@ pub struct Cx {
     // Needed for compositor::Context
     pub scroll: Option<usize>,
     pub jobs: TemporaryOwnedBorrowMut<Jobs>,
+
+    /// Needed for resource management. Mapping of resource ids to actual resources in the editor. Ids should be randomized and use of invalid ids immediately punished. That is because currently Wasm code can still forge resources as they are simply encoded using a u32. Maybe externrefs could be used in the future so that Wasm cannot forge or inspect resources anymore?
+    /// Including GC support will resolve this, because it allows externrefs to be used as handles. See https://github.com/WebAssembly/component-model/issues/525
+    resources: HashMap<u32, Resource>,
+}
+
+#[derive(Clone)]
+enum Resource {
+    EditorState,
+    ViewId(ViewId)
 }
 
 impl Imports {
@@ -58,6 +68,48 @@ impl Imports {
         self.cx
             .as_mut()
             .expect("helix context to be present during host imports")
+    }
+}
+
+impl bindings::helix::plugin::types::HostEditor for Imports {
+    fn new(&mut self) -> wasmtime::component::Resource<Editor> {
+        let Cx { editor, .. } = self.expect_cx();
+
+        wasmtime::component::Resource::new_borrow(1) // lets use 1 for the editor for now
+    }
+
+    fn get_tree(
+        &mut self,
+        self_: wasmtime::component::Resource<Editor>,
+    ) -> wasmtime::component::Resource<Tree> {
+        todo!()
+    }
+
+    fn close(
+        &mut self,
+        self_: wasmtime::component::Resource<Editor>,
+        view: wasmtime::component::Resource<ViewId>,
+    ) -> () {
+        todo!()
+    }
+
+    fn drop(&mut self, rep: wasmtime::component::Resource<Editor>) -> wasmtime::Result<()> {
+        todo!()
+    }
+}
+
+impl bindings::helix::plugin::types::HostTree for Imports {
+    fn get_focus(&mut self,self_:wasmtime::component::Resource<bindings::helix::plugin::types::Tree>,) -> wasmtime::component::Resource<ViewId> {
+        self_.rep()
+
+    }
+
+    fn get(&mut self,self_:wasmtime::component::Resource<Tree>,) -> wasmtime::component::Resource<View> {
+        todo!()
+    }
+
+    fn drop(&mut self,rep:wasmtime::component::Resource<Tree>) -> wasmtime::Result<()> {
+        todo!()
     }
 }
 
