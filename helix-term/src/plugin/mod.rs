@@ -23,10 +23,11 @@ impl PluginSystem {
     // TODO add dedicated methods for loading, unloading and reloading plugins dynamically
     pub fn new(
         search_dirs: impl Iterator<Item = impl AsRef<Path>>,
+        enable_caching: bool,
     ) -> Result<Self, (Self, anyhow::Error)> {
         let config = Config::new();
         let engine = Engine::new(&config).unwrap();
-        let mut loader = PluginLoader::new(&engine);
+        let mut loader = PluginLoader::new(&engine, enable_caching);
 
         let mut search_dir_errors_occurred = false;
         let mut file_path_error_occurred = false;
@@ -100,6 +101,7 @@ pub struct PluginInterface {
     base_bindings: Base,
     keyevents_bindings: Option<Keyevents>,
     run_typed_commands_bindings: Option<RunTypedCommands>,
+    editor_context_bindings: Option<EditorContext>
 }
 
 pub struct PluginState {

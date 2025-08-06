@@ -251,14 +251,15 @@ impl Application {
             // Add this for ease of development
             .chain(iter::once(
                 PathBuf::from_str(
-                    "builtin-plugins/hello-world/target/wasm32-unknown-unknown/debug",
+                    "builtin-plugins/reimplement-typed/target/wasm32-unknown-unknown/debug",
+                    // "builtin-plugins/hello-world/target/wasm32-unknown-unknown/debug",
                 )
                 .unwrap(),
             ));
 
         // Even in case of errors, we still get a plugin system back
         let plugin_system =
-            PluginSystem::new(plugin_search_dirs).unwrap_or_else(|(plugin_system, err)| {
+            PluginSystem::new(plugin_search_dirs, false).unwrap_or_else(|(plugin_system, err)| {
                 editor.set_error(err.to_string());
                 plugin_system
             });
@@ -664,6 +665,7 @@ impl Application {
             scroll: None,
         };
 
+        let mut should_redraw = false;
         if let Ok(CrosstermEvent::Key(KeyEvent {
             code: KeyCode::Char(c),
             ..
@@ -671,10 +673,11 @@ impl Application {
         {
             self.plugin_system
                 .on_key_press(cx.editor, &mut self.compositor, None, cx.jobs, *c);
+            should_redraw = true;
         }
 
         // Handle key events
-        let should_redraw = match event.unwrap() {
+        let should_redraw2 = match event.unwrap() {
             CrosstermEvent::Resize(width, height) => {
                 self.terminal
                     .resize(Rect::new(0, 0, width, height))
@@ -695,7 +698,7 @@ impl Application {
             event => self.compositor.handle_event(&event.into(), &mut cx),
         };
 
-        if should_redraw && !self.editor.should_close() {
+        if should_redraw || should_redraw2 && !self.editor.should_close() {
             self.render().await;
         }
     }

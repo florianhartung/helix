@@ -1,0 +1,1 @@
+`./world.wit` must be manually copied from the main project

@@ -19,12 +19,11 @@ lto = true
 [package.metadata.component]
 package = "component:reimplement-typed"
 
+[package.metadata.component.target.dependencies]
+"helix:plugin" = { path = 'wit/helix-plugin' }
+
 # In the future it could look like this with the WIT in an OCI registry
 # [package.metadata.component.target]
 # package = "helix:plugin"
 # version = "0.2.0"
 # world = "base"
-
-# What is the difference between *.component.target.dependencies and *.component.dependencies ??
-[package.metadata.component.target.dependencies]
-"helix:plugin" = { path = '/home/flo/git/florianhartung/helix/helix-term/src/plugin/' }

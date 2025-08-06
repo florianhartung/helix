@@ -1,7 +1,7 @@
 use std::{any::Any, collections::HashMap};
 
 use bindings::helix::plugin as interface_bindings;
-use helix_view::{Editor, ViewId};
+use helix_view::{graphics::Rect, Editor, ViewId};
 use wasmtime::component::Linker;
 
 use crate::{
@@ -11,7 +11,8 @@ use crate::{
 };
 
 use super::{
-    bindings::RunTypedCommands, temporary_owned_reference::TemporaryOwnedBorrowMut, PluginState,
+    bindings::EditorContext, bindings::RunTypedCommands,
+    temporary_owned_reference::TemporaryOwnedBorrowMut, PluginState,
 };
 
 /// Imports for a WASM component.
@@ -21,6 +22,7 @@ pub struct Imports {
 
     pub(crate) keyevents_interface_valid: bool,
     pub(crate) run_typed_commands_interface_valid: bool,
+    pub(crate) editor_context_interface_valid: bool,
 }
 
 /// Context that is stored temporarily when a plugin is invoked.
@@ -47,7 +49,7 @@ impl Cx {
     ) -> wasmtime::component::Resource<T> {
         let idx = self.resources.len();
         self.resources.push(resource);
-        wasmtime::component::Resource::new_borrow(idx.try_into().unwrap())
+        wasmtime::component::Resource::new_own(idx.try_into().unwrap())
     }
 
     fn get_resource<T: 'static>(
@@ -62,8 +64,9 @@ impl Cx {
 
 #[derive(Clone)]
 pub enum Resource {
-    EditorState,
     View(ViewId),
+    #[allow(unused)]
+    NonExhaustivePlaceholder,
 }
 
 impl Imports {
@@ -72,6 +75,7 @@ impl Imports {
             cx: None,
             keyevents_interface_valid: false,
             run_typed_commands_interface_valid: false,
+            editor_context_interface_valid: false,
         }
     }
 
@@ -81,6 +85,7 @@ impl Imports {
     ) -> wasmtime::Result<()> {
         Base::add_to_linker(linker, f)?;
         RunTypedCommands::add_to_linker(linker, f)?;
+        EditorContext::add_to_linker(linker, f)?;
 
         Ok(())
     }
@@ -94,34 +99,14 @@ impl Imports {
     }
 }
 
-impl interface_bindings::types::HostEditor for Imports {
-    fn new(&mut self) -> wasmtime::component::Resource<interface_bindings::types::Editor> {
+impl bindings::EditorContextImports for Imports {
+    fn get_focus(&mut self) -> wasmtime::component::Resource<bindings::View> {
         let cx = self.expect_cx();
-
-        cx.allocate_resource(Resource::EditorState)
-    }
-
-    fn get_focus(
-        &mut self,
-        editor: wasmtime::component::Resource<interface_bindings::types::Editor>,
-    ) -> wasmtime::component::Resource<interface_bindings::types::View> {
-        let cx = self.expect_cx();
-        let Resource::EditorState = cx.get_resource(editor) else {
-            panic!("bug in plugin system or malicious plugin detected");
-        };
-
         cx.allocate_resource(Resource::View(cx.editor.tree.focus))
     }
 
-    fn remove_view(
-        &mut self,
-        editor: wasmtime::component::Resource<interface_bindings::types::Editor>,
-        view: wasmtime::component::Resource<interface_bindings::types::View>,
-    ) {
+    fn remove_view(&mut self, view: wasmtime::component::Resource<bindings::View>) {
         let cx = self.expect_cx();
-        let Resource::EditorState = cx.get_resource(editor) else {
-            panic!("bug in plugin system or malicious plugin detected");
-        };
 
         let Resource::View(view_id) = cx.get_resource(view).clone() else {
             panic!("bug in plugin system or malicious plugin detected");
@@ -130,33 +115,22 @@ impl interface_bindings::types::HostEditor for Imports {
         cx.editor.tree.remove(view_id);
     }
 
-    fn drop(
-        &mut self,
-        rep: wasmtime::component::Resource<interface_bindings::types::Editor>,
-    ) -> wasmtime::Result<()> {
-        Ok(())
-    }
-
-    fn close(
-        &mut self,
-        self_: wasmtime::component::Resource<interface_bindings::types::Editor>,
-    ) -> () {
+    fn close(&mut self) {
         todo!()
     }
 }
 
-impl interface_bindings::types::HostView for Imports {
-    fn get_area(
-        &mut self,
-        self_: wasmtime::component::Resource<interface_bindings::types::View>,
-    ) -> interface_bindings::types::Rect {
-        todo!()
+impl bindings::HostView for Imports {
+    fn get_area(&mut self, view: wasmtime::component::Resource<bindings::View>) -> bindings::Rect {
+        let cx = self.expect_cx();
+
+        let &Resource::View(view_id) = cx.get_resource(view) else {
+            panic!("invalid resource")
+        };
+        cx.editor.tree.get(view_id).area.into()
     }
 
-    fn drop(
-        &mut self,
-        rep: wasmtime::component::Resource<interface_bindings::types::View>,
-    ) -> wasmtime::Result<()> {
+    fn drop(&mut self, _rep: wasmtime::component::Resource<bindings::View>) -> wasmtime::Result<()> {
         Ok(())
     }
 }

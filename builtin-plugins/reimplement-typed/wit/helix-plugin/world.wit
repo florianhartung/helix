@@ -24,8 +24,9 @@ interface types {
         error,
     }
 
-    // Models for helix stuff
+}
 
+world editor-context {
     record rect {
         x: u16,
         y: u16,
@@ -38,18 +39,15 @@ interface types {
         get-area: func() -> rect;
     }
 
-    resource editor {
-        constructor(); // gets editor from cx, all editor methods could be lifted to global functions
-        get-focus: func() -> view;
-        remove-view: func(view: view);
-        // get-all-views: func() -> list<view>;
-        close: func();
-    }
+    import get-focus: func() -> view;
+    import remove-view: func(view: borrow<view>);
+    // get-all-views: func() -> list<view>;
+    import close: func();
 }
 
 
 world base {
-    use types.{log-level, plugin-metadata, editor};
+    use types.{log-level, plugin-metadata};
 
     /// Every plugin has to provide some mandatory metadata, which may be displayed to the user.
     /// This is the only function from which a plugin may not call imported functions.

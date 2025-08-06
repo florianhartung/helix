@@ -1,24 +1,25 @@
 #[allow(warnings)]
 mod bindings;
 
-use bindings::*;
+use bindings::helix::plugin as bindings_package;
+use bindings::{Guest, LogLevel, PluginMetadata};
 
 struct Component;
 
 impl Guest for Component {
     fn initialize() {
-        log(LogLevel::Info, "Hello from WebAssembly!");
+        bindings::log(LogLevel::Info, "Hello from WebAssembly!");
     }
 
     fn handle_key_press(code: char) {
+        let area = bindings::get_focus().get_area();
+        bindings::log(LogLevel::Error, &format!("area of focused view: {}", area.width));
+
         if code == 'p' {
-            match close_buffer() {
-                Ok(()) => set_editor_status("all gucci"),
-                Err(err) => set_editor_status(&format!("error lol: {err}")),
-            }
+            bindings::close();
         }
-        set_editor_status(&format!("rust plugin received keycode={code}"));
-        log(LogLevel::Error, &format!("Rust plugin received keycode={code}"));
+
+        bindings::set_editor_status(&format!("area of focused view: {}", area.width));
     }
 
     fn get_metadata() -> PluginMetadata {
@@ -26,9 +27,9 @@ impl Guest for Component {
             name: "My first plugin".to_owned(),
             description: "This is just a plugin for development and testing purposes. It is currently built-in, which means it is automatically shipped with the helix runtime. Actually this feature does not exist yet but let's pretend it does.".to_owned(),
             keywords: vec!["hello".to_owned(), "world".to_owned()],
-            requested_wasi_interfaces: helix::plugin::types::RequestedWasiInterfaces::empty(),
+            requested_wasi_interfaces: bindings_package::types::RequestedWasiInterfaces::empty(),
         }
     }
 }
 
-export!(Component with_types_in bindings);
+bindings::export!(Component with_types_in bindings);

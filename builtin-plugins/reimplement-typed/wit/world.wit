@@ -4,6 +4,7 @@ world reimplement-typed {
     include helix:plugin/base;
 
     include helix:plugin/keyevents;
+    include helix:plugin/editor-context;
 
-    include helix:plugin/run-typed-commands;
+    // include helix:plugin/run-typed-commands;
 }

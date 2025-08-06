@@ -60,6 +60,7 @@ impl PluginSystem {
     }
 }
 
+// Don't look at this. It basically only converts rust references to owned values temporarily, so that they can be stored in the [`wasmtime::component::Store`].
 fn inject_helix_context_into_plugin_store<R>(
     editor: &mut Editor,
     compositor: &mut Compositor,

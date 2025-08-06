@@ -1,5 +1,60 @@
 pub type LogLevel = helix::plugin::types::LogLevel;
 pub type PluginMetadata = helix::plugin::types::PluginMetadata;
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct Rect {
+    pub x: u16,
+    pub y: u16,
+    pub width: u16,
+    pub height: u16,
+}
+impl ::core::fmt::Debug for Rect {
+    fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+        f.debug_struct("Rect")
+            .field("x", &self.x)
+            .field("y", &self.y)
+            .field("width", &self.width)
+            .field("height", &self.height)
+            .finish()
+    }
+}
+#[derive(Debug)]
+#[repr(transparent)]
+pub struct View {
+    handle: _rt::Resource<View>,
+}
+impl View {
+    #[doc(hidden)]
+    pub unsafe fn from_handle(handle: u32) -> Self {
+        Self {
+            handle: _rt::Resource::from_handle(handle),
+        }
+    }
+    #[doc(hidden)]
+    pub fn take_handle(&self) -> u32 {
+        _rt::Resource::take_handle(&self.handle)
+    }
+    #[doc(hidden)]
+    pub fn handle(&self) -> u32 {
+        _rt::Resource::handle(&self.handle)
+    }
+}
+unsafe impl _rt::WasmResource for View {
+    #[inline]
+    unsafe fn drop(_handle: u32) {
+        #[cfg(not(target_arch = "wasm32"))]
+        unreachable!();
+        #[cfg(target_arch = "wasm32")]
+        {
+            #[link(wasm_import_module = "$root")]
+            extern "C" {
+                #[link_name = "[resource-drop]view"]
+                fn drop(_: u32);
+            }
+            drop(_handle);
+        }
+    }
+}
 #[allow(unused_unsafe, clippy::all)]
 /// Logs some message in the helix log file.
 pub fn log(level: LogLevel, msg: &str) {
@@ -76,49 +131,87 @@ pub fn set_editor_status(msg: &str) {
         wit_import(ptr0.cast_mut(), len0);
     }
 }
+impl View {
+    #[allow(unused_unsafe, clippy::all)]
+    /// get-id: func() -> view-id;
+    pub fn get_area(&self) -> Rect {
+        unsafe {
+            #[repr(align(2))]
+            struct RetArea([::core::mem::MaybeUninit<u8>; 8]);
+            let mut ret_area = RetArea([::core::mem::MaybeUninit::uninit(); 8]);
+            let ptr0 = ret_area.0.as_mut_ptr().cast::<u8>();
+            #[cfg(target_arch = "wasm32")]
+            #[link(wasm_import_module = "$root")]
+            extern "C" {
+                #[link_name = "[method]view.get-area"]
+                fn wit_import(_: i32, _: *mut u8);
+            }
+            #[cfg(not(target_arch = "wasm32"))]
+            fn wit_import(_: i32, _: *mut u8) {
+                unreachable!()
+            }
+            wit_import((self).handle() as i32, ptr0);
+            let l1 = i32::from(*ptr0.add(0).cast::<u16>());
+            let l2 = i32::from(*ptr0.add(2).cast::<u16>());
+            let l3 = i32::from(*ptr0.add(4).cast::<u16>());
+            let l4 = i32::from(*ptr0.add(6).cast::<u16>());
+            Rect {
+                x: l1 as u16,
+                y: l2 as u16,
+                width: l3 as u16,
+                height: l4 as u16,
+            }
+        }
+    }
+}
 #[allow(unused_unsafe, clippy::all)]
-/// Does option<_> make sense as a return type?
-/// Will calling quit instantly quit the editor or is the plugin allowed to continue its execution?
-/// The error should probably be returned to the plugin
-/// import quit: func() -> result;
-/// import quit-force: func();
-/// import write-quit: func();
-/// import write-quit-force: func();
-pub fn close_buffer() -> Result<(), _rt::String> {
+pub fn get_focus() -> View {
     unsafe {
-        #[repr(align(4))]
-        struct RetArea([::core::mem::MaybeUninit<u8>; 12]);
-        let mut ret_area = RetArea([::core::mem::MaybeUninit::uninit(); 12]);
-        let ptr0 = ret_area.0.as_mut_ptr().cast::<u8>();
         #[cfg(target_arch = "wasm32")]
         #[link(wasm_import_module = "$root")]
         extern "C" {
-            #[link_name = "close-buffer"]
-            fn wit_import(_: *mut u8);
+            #[link_name = "get-focus"]
+            fn wit_import() -> i32;
         }
         #[cfg(not(target_arch = "wasm32"))]
-        fn wit_import(_: *mut u8) {
+        fn wit_import() -> i32 {
             unreachable!()
         }
-        wit_import(ptr0);
-        let l1 = i32::from(*ptr0.add(0).cast::<u8>());
-        match l1 {
-            0 => {
-                let e = ();
-                Ok(e)
-            }
-            1 => {
-                let e = {
-                    let l2 = *ptr0.add(4).cast::<*mut u8>();
-                    let l3 = *ptr0.add(8).cast::<usize>();
-                    let len4 = l3;
-                    let bytes4 = _rt::Vec::from_raw_parts(l2.cast(), len4, len4);
-                    _rt::string_lift(bytes4)
-                };
-                Err(e)
-            }
-            _ => _rt::invalid_enum_discriminant(),
+        let ret = wit_import();
+        View::from_handle(ret as u32)
+    }
+}
+#[allow(unused_unsafe, clippy::all)]
+pub fn remove_view(view: &View) {
+    unsafe {
+        #[cfg(target_arch = "wasm32")]
+        #[link(wasm_import_module = "$root")]
+        extern "C" {
+            #[link_name = "remove-view"]
+            fn wit_import(_: i32);
         }
+        #[cfg(not(target_arch = "wasm32"))]
+        fn wit_import(_: i32) {
+            unreachable!()
+        }
+        wit_import((view).handle() as i32);
+    }
+}
+#[allow(unused_unsafe, clippy::all)]
+/// get-all-views: func() -> list<view>;
+pub fn close() {
+    unsafe {
+        #[cfg(target_arch = "wasm32")]
+        #[link(wasm_import_module = "$root")]
+        extern "C" {
+            #[link_name = "close"]
+            fn wit_import();
+        }
+        #[cfg(not(target_arch = "wasm32"))]
+        fn wit_import() {
+            unreachable!()
+        }
+        wit_import();
     }
 }
 #[doc(hidden)]
@@ -309,249 +402,6 @@ pub mod helix {
                     }
                 }
             }
-            /// TODO model helix context and APIs as resources
-            #[derive(Debug)]
-            #[repr(transparent)]
-            pub struct View {
-                handle: _rt::Resource<View>,
-            }
-            impl View {
-                #[doc(hidden)]
-                pub unsafe fn from_handle(handle: u32) -> Self {
-                    Self {
-                        handle: _rt::Resource::from_handle(handle),
-                    }
-                }
-                #[doc(hidden)]
-                pub fn take_handle(&self) -> u32 {
-                    _rt::Resource::take_handle(&self.handle)
-                }
-                #[doc(hidden)]
-                pub fn handle(&self) -> u32 {
-                    _rt::Resource::handle(&self.handle)
-                }
-            }
-            unsafe impl _rt::WasmResource for View {
-                #[inline]
-                unsafe fn drop(_handle: u32) {
-                    #[cfg(not(target_arch = "wasm32"))]
-                    unreachable!();
-                    #[cfg(target_arch = "wasm32")]
-                    {
-                        #[link(wasm_import_module = "helix:plugin/types")]
-                        extern "C" {
-                            #[link_name = "[resource-drop]view"]
-                            fn drop(_: u32);
-                        }
-                        drop(_handle);
-                    }
-                }
-            }
-            #[derive(Debug)]
-            #[repr(transparent)]
-            pub struct ViewId {
-                handle: _rt::Resource<ViewId>,
-            }
-            impl ViewId {
-                #[doc(hidden)]
-                pub unsafe fn from_handle(handle: u32) -> Self {
-                    Self {
-                        handle: _rt::Resource::from_handle(handle),
-                    }
-                }
-                #[doc(hidden)]
-                pub fn take_handle(&self) -> u32 {
-                    _rt::Resource::take_handle(&self.handle)
-                }
-                #[doc(hidden)]
-                pub fn handle(&self) -> u32 {
-                    _rt::Resource::handle(&self.handle)
-                }
-            }
-            unsafe impl _rt::WasmResource for ViewId {
-                #[inline]
-                unsafe fn drop(_handle: u32) {
-                    #[cfg(not(target_arch = "wasm32"))]
-                    unreachable!();
-                    #[cfg(target_arch = "wasm32")]
-                    {
-                        #[link(wasm_import_module = "helix:plugin/types")]
-                        extern "C" {
-                            #[link_name = "[resource-drop]view-id"]
-                            fn drop(_: u32);
-                        }
-                        drop(_handle);
-                    }
-                }
-            }
-            #[derive(Debug)]
-            #[repr(transparent)]
-            pub struct Tree {
-                handle: _rt::Resource<Tree>,
-            }
-            impl Tree {
-                #[doc(hidden)]
-                pub unsafe fn from_handle(handle: u32) -> Self {
-                    Self {
-                        handle: _rt::Resource::from_handle(handle),
-                    }
-                }
-                #[doc(hidden)]
-                pub fn take_handle(&self) -> u32 {
-                    _rt::Resource::take_handle(&self.handle)
-                }
-                #[doc(hidden)]
-                pub fn handle(&self) -> u32 {
-                    _rt::Resource::handle(&self.handle)
-                }
-            }
-            unsafe impl _rt::WasmResource for Tree {
-                #[inline]
-                unsafe fn drop(_handle: u32) {
-                    #[cfg(not(target_arch = "wasm32"))]
-                    unreachable!();
-                    #[cfg(target_arch = "wasm32")]
-                    {
-                        #[link(wasm_import_module = "helix:plugin/types")]
-                        extern "C" {
-                            #[link_name = "[resource-drop]tree"]
-                            fn drop(_: u32);
-                        }
-                        drop(_handle);
-                    }
-                }
-            }
-            #[derive(Debug)]
-            #[repr(transparent)]
-            pub struct Editor {
-                handle: _rt::Resource<Editor>,
-            }
-            impl Editor {
-                #[doc(hidden)]
-                pub unsafe fn from_handle(handle: u32) -> Self {
-                    Self {
-                        handle: _rt::Resource::from_handle(handle),
-                    }
-                }
-                #[doc(hidden)]
-                pub fn take_handle(&self) -> u32 {
-                    _rt::Resource::take_handle(&self.handle)
-                }
-                #[doc(hidden)]
-                pub fn handle(&self) -> u32 {
-                    _rt::Resource::handle(&self.handle)
-                }
-            }
-            unsafe impl _rt::WasmResource for Editor {
-                #[inline]
-                unsafe fn drop(_handle: u32) {
-                    #[cfg(not(target_arch = "wasm32"))]
-                    unreachable!();
-                    #[cfg(target_arch = "wasm32")]
-                    {
-                        #[link(wasm_import_module = "helix:plugin/types")]
-                        extern "C" {
-                            #[link_name = "[resource-drop]editor"]
-                            fn drop(_: u32);
-                        }
-                        drop(_handle);
-                    }
-                }
-            }
-            impl Tree {
-                #[allow(unused_unsafe, clippy::all)]
-                pub fn get_focus(&self) -> ViewId {
-                    unsafe {
-                        #[cfg(target_arch = "wasm32")]
-                        #[link(wasm_import_module = "helix:plugin/types")]
-                        extern "C" {
-                            #[link_name = "[method]tree.get-focus"]
-                            fn wit_import(_: i32) -> i32;
-                        }
-                        #[cfg(not(target_arch = "wasm32"))]
-                        fn wit_import(_: i32) -> i32 {
-                            unreachable!()
-                        }
-                        let ret = wit_import((self).handle() as i32);
-                        ViewId::from_handle(ret as u32)
-                    }
-                }
-            }
-            impl Tree {
-                #[allow(unused_unsafe, clippy::all)]
-                pub fn get(&self) -> View {
-                    unsafe {
-                        #[cfg(target_arch = "wasm32")]
-                        #[link(wasm_import_module = "helix:plugin/types")]
-                        extern "C" {
-                            #[link_name = "[method]tree.get"]
-                            fn wit_import(_: i32) -> i32;
-                        }
-                        #[cfg(not(target_arch = "wasm32"))]
-                        fn wit_import(_: i32) -> i32 {
-                            unreachable!()
-                        }
-                        let ret = wit_import((self).handle() as i32);
-                        View::from_handle(ret as u32)
-                    }
-                }
-            }
-            impl Editor {
-                #[allow(unused_unsafe, clippy::all)]
-                pub fn new() -> Self {
-                    unsafe {
-                        #[cfg(target_arch = "wasm32")]
-                        #[link(wasm_import_module = "helix:plugin/types")]
-                        extern "C" {
-                            #[link_name = "[constructor]editor"]
-                            fn wit_import() -> i32;
-                        }
-                        #[cfg(not(target_arch = "wasm32"))]
-                        fn wit_import() -> i32 {
-                            unreachable!()
-                        }
-                        let ret = wit_import();
-                        Editor::from_handle(ret as u32)
-                    }
-                }
-            }
-            impl Editor {
-                #[allow(unused_unsafe, clippy::all)]
-                pub fn get_tree(&self) -> Tree {
-                    unsafe {
-                        #[cfg(target_arch = "wasm32")]
-                        #[link(wasm_import_module = "helix:plugin/types")]
-                        extern "C" {
-                            #[link_name = "[method]editor.get-tree"]
-                            fn wit_import(_: i32) -> i32;
-                        }
-                        #[cfg(not(target_arch = "wasm32"))]
-                        fn wit_import(_: i32) -> i32 {
-                            unreachable!()
-                        }
-                        let ret = wit_import((self).handle() as i32);
-                        Tree::from_handle(ret as u32)
-                    }
-                }
-            }
-            impl Editor {
-                #[allow(unused_unsafe, clippy::all)]
-                pub fn close(&self, view: ViewId) {
-                    unsafe {
-                        #[cfg(target_arch = "wasm32")]
-                        #[link(wasm_import_module = "helix:plugin/types")]
-                        extern "C" {
-                            #[link_name = "[method]editor.close"]
-                            fn wit_import(_: i32, _: i32);
-                        }
-                        #[cfg(not(target_arch = "wasm32"))]
-                        fn wit_import(_: i32, _: i32) {
-                            unreachable!()
-                        }
-                        wit_import((self).handle() as i32, (&view).take_handle() as i32);
-                    }
-                }
-            }
         }
     }
 }
@@ -699,27 +549,24 @@ pub(crate) use __export_reimplement_typed_impl as export;
 #[cfg(target_arch = "wasm32")]
 #[link_section = "component-type:wit-bindgen:0.31.0:component:reimplement-typed:reimplement-typed:encoded world"]
 #[doc(hidden)]
-pub static __WIT_BINDGEN_COMPONENT_TYPE: [u8; 908] = *b"\
-\0asm\x0d\0\x01\0\0\x19\x16wit-component-encoding\x04\0\x07\x84\x06\x01A\x02\x01\
-A\x18\x01B\x1b\x01n\x05\x04http\x03foo\x03bar\x03baz\x03bla\x04\0\x19requested-w\
+pub static __WIT_BINDGEN_COMPONENT_TYPE: [u8; 761] = *b"\
+\0asm\x0d\0\x01\0\0\x19\x16wit-component-encoding\x04\0\x07\xf1\x04\x01A\x02\x01\
+A\x1f\x01B\x07\x01n\x05\x04http\x03foo\x03bar\x03baz\x03bla\x04\0\x19requested-w\
 asi-interfaces\x03\0\0\x01ps\x01r\x04\x04names\x0bdescriptions\x08keywords\x02\x19\
 requested-wasi-interfaces\x01\x04\0\x0fplugin-metadata\x03\0\x03\x01m\x03\x04inf\
-o\x04warn\x05error\x04\0\x09log-level\x03\0\x05\x04\0\x04view\x03\x01\x04\0\x07v\
-iew-id\x03\x01\x04\0\x04tree\x03\x01\x04\0\x06editor\x03\x01\x01h\x09\x01i\x08\x01\
-@\x01\x04self\x0b\0\x0c\x04\0\x16[method]tree.get-focus\x01\x0d\x01i\x07\x01@\x01\
-\x04self\x0b\0\x0e\x04\0\x10[method]tree.get\x01\x0f\x01i\x0a\x01@\0\0\x10\x04\0\
-\x13[constructor]editor\x01\x11\x01h\x0a\x01i\x09\x01@\x01\x04self\x12\0\x13\x04\
-\0\x17[method]editor.get-tree\x01\x14\x01@\x02\x04self\x12\x04view\x0c\x01\0\x04\
-\0\x14[method]editor.close\x01\x15\x03\x01\x12helix:plugin/types\x05\0\x02\x03\0\
-\0\x09log-level\x03\0\x09log-level\x03\0\x01\x02\x03\0\0\x0fplugin-metadata\x03\0\
-\x0fplugin-metadata\x03\0\x03\x02\x03\0\0\x06editor\x03\0\x06editor\x03\0\x05\x01\
-@\x02\x05level\x02\x03msgs\x01\0\x03\0\x03log\x01\x07\x01ks\x01@\0\0\x08\x03\0\x12\
-get-text-selection\x01\x09\x01@\x01\x03msgs\x01\0\x03\0\x11set-editor-status\x01\
-\x0a\x01j\0\x01s\x01@\0\0\x0b\x03\0\x0cclose-buffer\x01\x0c\x01@\0\0\x04\x04\0\x0c\
-get-metadata\x01\x0d\x01@\0\x01\0\x04\0\x0ainitialize\x01\x0e\x01@\x01\x01ct\x01\
-\0\x04\0\x10handle-key-press\x01\x0f\x04\x01-component:reimplement-typed/reimple\
-ment-typed\x04\0\x0b\x17\x01\0\x11reimplement-typed\x03\0\0\0G\x09producers\x01\x0c\
-processed-by\x02\x0dwit-component\x070.216.0\x10wit-bindgen-rust\x060.31.0";
+o\x04warn\x05error\x04\0\x09log-level\x03\0\x05\x03\x01\x12helix:plugin/types\x05\
+\0\x02\x03\0\0\x09log-level\x03\0\x09log-level\x03\0\x01\x02\x03\0\0\x0fplugin-m\
+etadata\x03\0\x0fplugin-metadata\x03\0\x03\x01@\x02\x05level\x02\x03msgs\x01\0\x03\
+\0\x03log\x01\x05\x01ks\x01@\0\0\x06\x03\0\x12get-text-selection\x01\x07\x01@\x01\
+\x03msgs\x01\0\x03\0\x11set-editor-status\x01\x08\x01r\x04\x01x{\x01y{\x05width{\
+\x06height{\x03\0\x04rect\x03\0\x09\x03\0\x04view\x03\x01\x01i\x0b\x01@\0\0\x0c\x03\
+\0\x09get-focus\x01\x0d\x01h\x0b\x01@\x01\x04view\x0e\x01\0\x03\0\x0bremove-view\
+\x01\x0f\x01@\0\x01\0\x03\0\x05close\x01\x10\x01@\x01\x04self\x0e\0\x0a\x03\0\x15\
+[method]view.get-area\x01\x11\x01@\0\0\x04\x04\0\x0cget-metadata\x01\x12\x04\0\x0a\
+initialize\x01\x10\x01@\x01\x01ct\x01\0\x04\0\x10handle-key-press\x01\x13\x04\x01\
+-component:reimplement-typed/reimplement-typed\x04\0\x0b\x17\x01\0\x11reimplemen\
+t-typed\x03\0\0\0G\x09producers\x01\x0cprocessed-by\x02\x0dwit-component\x070.21\
+6.0\x10wit-bindgen-rust\x060.31.0";
 #[inline(never)]
 #[doc(hidden)]
 pub fn __link_custom_section_describing_imports() {
